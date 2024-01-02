@@ -142,6 +142,7 @@ resource "azurerm_private_endpoint" "storage_account_private_endpoint" {
 ###### App Insight for: Azure function NAC_Discovery in ACS Resource Group ###############
 
 resource "azurerm_application_insights" "app_insights" {
+  count = var.service_name == "EXP" ? 1 : 0
   name                = "nasuni-app-insights-${random_id.nac_unique_stack_id.hex}"
   resource_group_name = data.azurerm_resource_group.resource_group.name
   location            = data.azurerm_resource_group.resource_group.location
@@ -218,7 +219,7 @@ resource "azurerm_linux_function_app" "discovery_function_app_private" {
   ]
 }
 resource "azurerm_linux_function_app" "discovery_function_app_public" {
-  count               = var.use_private_acs == "Y" && var.service_name != "EXP" ? 0 : 1
+  count               = var.use_private_acs == "Y" && var.service_name != "EXP" ? 1 :  0
   name                = "nasuni-function-app-${random_id.nac_unique_stack_id.hex}"
   resource_group_name = data.azurerm_resource_group.resource_group.name
   location            = data.azurerm_resource_group.resource_group.location
@@ -321,17 +322,14 @@ resource "null_resource" "dos2unix" {
 
 resource "null_resource" "provision_nac" {
   provisioner "local-exec" {
-    command     = var.use_private_acs == "Y" ? "./nac-auth.sh ${azurerm_linux_function_app.discovery_function_app_private[0].default_hostname} ${var.acs_nmc_volume_name} ${var.nac_resource_group_name}" : "./nac-auth.sh ${azurerm_linux_function_app.discovery_function_app_public[0].default_hostname} ${var.acs_nmc_volume_name} ${var.nac_resource_group_name} ${var.service_name}"
+    command     =  "./nac-auth.sh acs ${var.acs_nmc_volume_name} ${var.nac_resource_group_name} EXP"  
     interpreter = ["/bin/bash", "-c"]
   }
   depends_on = [
     null_resource.dos2unix,
-   
+
   ]
 }
-
 ########### END : Provision NAC ###########################
 
-output "FunctionAppSearchURL" {
-  value = var.use_private_acs == "Y" && var.service_name != "EXP" ? "https://${azurerm_linux_function_app.discovery_function_app_private[0].default_hostname}/api/IndexFunction" : "https://${azurerm_linux_function_app.discovery_function_app_public[0].default_hostname}/api/IndexFunction"
-}
+
